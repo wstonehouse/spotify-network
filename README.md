@@ -13,5 +13,5 @@ Users can also visualize the genre networks of any of their playlists.
 
 ## Examples
 
-![](example_trace.png)
+![](example.png)
  
