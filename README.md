@@ -26,7 +26,9 @@ This app is still in development. Next steps are getting the app on Flask. For n
 To run it on your machine, change the variable which contains your username. Before running the app, you must make an app on Spotify and export the following enviornment variables:
 
 export SPOTIPY_CLIENT_ID='your_secret_ID'
+
 export SPOTIPY_CLIENT_SECRET='your_secret_client'
+
 export SPOTIPY_REDIRECT_URI='https://www.google.com/'
 
 
