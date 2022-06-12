@@ -1,7 +1,7 @@
 from collections import Counter 
 
 import dash
-from dash import Dash, html, dcc
+from dash import Dash, dcc, html, Input, Output
 import networkx as nx
 
 import json
@@ -21,40 +21,21 @@ from chart_studio import plotly
 from plotly.graph_objs import *
 import plotly.express as px
 
-def network_graph():
-
-    """
-    Get user information using Spotipy
-    """
+def graph(playlist):
 
     # Create spotify object with security token
-    username = input("Input your username: ")
     username = 1221250460
     token = util.prompt_for_user_token(username)
     spotifyObject = spotipy.Spotify(auth=token)
 
-    # Get the user's playlists
+    playlist_name = str(playlist)
+
     results = spotifyObject.current_user_playlists(limit=50)
     playlists = results['items']
 
-    # Display current user playlists on the console
-    playlist_amount = []
     for i, item in enumerate(playlists):
-        print("%d %s" % (i, item['name']))
-        playlist_amount.append(i)
-
-    #Ask user to select a plyalist
-    while True:
-        #x = int(input("\nWhat playlist would you like to analyze?\n"))
-        x = 37
-        playlist_description = playlists[x]
-        playlist_name = playlist_description['name']
-
-        if x not in playlist_amount:
-            print("\nSelect a valid number")
-        else:
-            print("\nYou selected:",playlist_name,"\n")
-            break
+        if playlist == item['name']:
+            playlist_description = playlists[i]
 
     # Get items from playlist
     playlistEntries = spotifyObject.playlist_tracks(playlist_description['id'],offset=0)
@@ -124,9 +105,8 @@ def network_graph():
         except:
             print("Track Dropped")
 
-    # Ask user to prune nodes
-    #node_amount = int(input("\n\nWhat is your genre?\n"))
-    node_amount = 2
+    # The minimum amount of occurences for a genre to be featured in graph
+    node_amount = 7
 
     # Remove extra nodes
     amount_listX = list(genre_count.values())
@@ -216,7 +196,7 @@ def network_graph():
     # Show Plotly figure
     fig = go.Figure(data=[edge_trace, node_trace],
         layout=go.Layout(
-        title="Playlist: "+playlist_name,
+        #title="Playlist: "+playlist_name,
         titlefont_size=16,
         margin=dict(b=20,l=5,r=5,t=40),
         paper_bgcolor='rgba(0,0,0,0)',
@@ -228,36 +208,72 @@ def network_graph():
     fig.update_layout(
         height=700)
 
-    return fig,fig2;
+    return fig
 
-fig, fig2 = network_graph()
+def get_playlists_options():
 
+    # Create spotify object with security token
+    username = 1221250460
+    token = util.prompt_for_user_token(username)
+    spotifyObject = spotipy.Spotify(auth=token)
 
-# Dash App
+    # Get the user's playlists
+    results = spotifyObject.current_user_playlists(limit=50)
+    playlists = results['items']
+
+    # Display current user playlists on the console
+    playlist_names=[]
+    for i, item in enumerate(playlists):
+        #print("%d %s" % (i, item['name']))
+        playlist_names.append(item['name'])
+
+    # Construct a list of dictionaries that are compatible with 
+    options=[]
+    for i in playlist_names:
+        d = {}
+        d['label']=i
+        d['value']=i
+        options.append(d)
+    
+    return options
+
+# Retrieve the options for the dropdown
+options = get_playlists_options()
+# Retrieve the first value for the dropdown
+value = options[15]
+first_value = list(value.items())[0][1]
 
 app = dash.Dash(__name__)
-
 app.title = "Micro-Genre Network"
-
 app.layout = html.Div(
     #style={'backgroundColor':'#87D653'},
-    children=[
-        html.H1(children="Micro-Genre Network"),
+    children=[  
+        dcc.Dropdown(
+            id='dropdown',
+            options=options,
+            value=first_value
+        ),
+        html.Div(
+            id='dd-output-container'
+        ),
+        html.H1(
+            children="Micro-Genre Network"
+        ),
         html.P(
-            children="Info about the app"
+            children="Allow for some time for the graph to process. The larger the playlist, the longer the time."
         ),
-        html.Div(
-            className="NetworkGraph",
-            children=[dcc.Graph(id="my_graph",figure=fig)],
-            style={'backgroundColor':'#5F9EA00'}
+        dcc.Graph(
+            id='my_graph'
         ),
-        html.Div(
-            className="PieChart",
-            children=[dcc.Graph(id="my_graph2",figure=fig2)],
-            style={'backgroundColor':'#5F9EA00'}
-        )
     ]
 )
 
+@app.callback(
+    Output('my_graph', 'figure'),
+    Input('dropdown', 'value'))
+def update_output(value):
+    fig = graph(value)
+    return fig
+
 if __name__ == '__main__':
-    app.run_server("debug"==True)
+    app.run_server()
