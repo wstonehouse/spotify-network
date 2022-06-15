@@ -1,7 +1,7 @@
 from collections import Counter 
 
 import dash
-from dash import Dash, dcc, html, Input, Output
+from dash import Dash, dcc, html, Input, Output, State
 import networkx as nx
 
 import json
@@ -21,7 +21,13 @@ from chart_studio import plotly
 from plotly.graph_objs import *
 import plotly.express as px
 
-def graph(playlist):
+def graph(playlist,node_amount):
+    """
+    graph creates a network of genres present in a user's playlist
+    :param playlist: the name of the playlist to graph
+    :param node_amount: the amount of nodes you'd like in the graoh
+    :return: return the plotly graph
+    """
 
     # Create spotify object with security token
     username = 1221250460
@@ -32,7 +38,7 @@ def graph(playlist):
 
     results = spotifyObject.current_user_playlists(limit=50)
     playlists = results['items']
-
+    
     for i, item in enumerate(playlists):
         if playlist == item['name']:
             playlist_description = playlists[i]
@@ -72,8 +78,8 @@ def graph(playlist):
     genre_count = dict(sorted(genre_count.items(), key = lambda x: x[1], reverse = True))
 
     # Display the genres and their count
-    for key in genre_count:
-        print(key,'-',genre_count[key])
+    #for key in genre_count:
+        #print(key,'-',genre_count[key])
    
     """
     Construct network with NetworkX
@@ -105,21 +111,17 @@ def graph(playlist):
         except:
             print("Track Dropped")
 
-    # The minimum amount of occurences for a genre to be featured in graph
-    node_amount = 7
-
     # Remove extra nodes
     amount_listX = list(genre_count.values())
     XX_amounts = []
     XX_genres = []
-    count=0
+
     for i, genre in enumerate(genresX):
-        if amount_listX[i] < node_amount:
+        if i > node_amount:
             g.remove_node(genre)
         else:
             XX_amounts.append(amount_listX[i])
             XX_genres.append(genre)
-            count+=1
 
     # Make size of nodes bigger
     XX_amounts = [(i**(log(7000)/log(XX_amounts[0])/1.8)) for i in XX_amounts]
@@ -178,17 +180,11 @@ def graph(playlist):
         mode='markers+text',
         hoverinfo='text',
         marker=dict(
-            showscale=True,
+            showscale=False,
             colorscale='Greens',
-            reversescale=True,
+            reversescale=False,
             color='Green',
             size=XX_amounts,
-            colorbar=dict(
-                thickness=15,
-                title='Node Connections',
-                xanchor='left',
-                titleside='right'
-            ),
             line_width=2),
         text = genresX
         )
@@ -211,6 +207,10 @@ def graph(playlist):
     return fig
 
 def get_playlists_options():
+    """
+    get_playlists_options gets all the playlist options from your spotify account, formatted to work with 
+    :return: return a list of dictionaries that describe the playlist options
+    """
 
     # Create spotify object with security token
     username = 1221250460
@@ -227,7 +227,7 @@ def get_playlists_options():
         #print("%d %s" % (i, item['name']))
         playlist_names.append(item['name'])
 
-    # Construct a list of dictionaries that are compatible with 
+    # Construct a list of dictionaries that are compatible with the Dropdown
     options=[]
     for i in playlist_names:
         d = {}
@@ -239,9 +239,11 @@ def get_playlists_options():
 
 # Retrieve the options for the dropdown
 options = get_playlists_options()
-# Retrieve the first value for the dropdown
-value = options[15]
+value = options[0]
 first_value = list(value.items())[0][1]
+
+# Generate the first playlist graph
+fig=graph(first_value,20)
 
 app = dash.Dash(__name__)
 app.title = "Micro-Genre Network"
@@ -263,16 +265,19 @@ app.layout = html.Div(
             children="Allow for some time for the graph to process. The larger the playlist, the longer the time."
         ),
         dcc.Graph(
-            id='my_graph'
-        ),
+            id='my_graph',
+            figure=fig
+        )
     ]
 )
 
 @app.callback(
     Output('my_graph', 'figure'),
-    Input('dropdown', 'value'))
-def update_output(value):
-    fig = graph(value)
+    Input('dropdown', 'value'),
+)
+def update_output(first_value):
+    amount = 20
+    fig = graph(first_value,amount)
     return fig
 
 if __name__ == '__main__':
